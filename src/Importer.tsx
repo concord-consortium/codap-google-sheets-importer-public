@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./codap.css";
-import "./App.css";
+import "./styles.css";
 import { initializePlugin, createTableWithDataset } from "codap-phone";
 import { useInput } from "./hooks";
-import { getDataFromSheet, makeDataset } from "./util";
+import {
+  getDataFromSheet,
+  makeDataset,
+  formatRange,
+  firstRowOfCustomRange,
+  getSpreadsheetIdFromLink,
+} from "./util";
 import Select from "react-select";
+import { customStyles } from "./selectStyles";
 
 // Used for non-authorized access
 const apiKey = "AIzaSyApHk347S1T57kwsI5kiitUriEyr89NHxo";
@@ -17,7 +24,7 @@ const PLUGIN_TITLE = "Google Sheets Importer";
 const PLUGIN_WIDTH = 400;
 const PLUGIN_HEIGHT = 500;
 
-export default function App() {
+export default function Importer() {
   const [error, setError] = useState<string>("");
   const [spreadsheetLink, spreadsheetLinkChange, setSpreadsheetLink] = useInput<
     string,
@@ -37,6 +44,60 @@ export default function App() {
   >("", () => setError(""));
   const [useAllColumns, setUseAllColumns] = useState<boolean>(true);
   const [columns, setColumns] = useState<string[]>([]);
+  const [chosenColumns, setChosenColumns] = useState<string[]>([]);
+
+  function resetState() {
+    setError("");
+    setSpreadsheetLink("");
+    setChosenSpreadsheet(null);
+    setChosenSheet("");
+    setUseHeader(true);
+    setUseCustomRange(false);
+    setCustomRange("");
+    setUseAllColumns(true);
+    setColumns([]);
+    setChosenColumns([]);
+  }
+
+  // Fetch column names
+  useEffect(() => {
+    (async () => {
+      if (
+        chosenSpreadsheet === null ||
+        chosenSheet === "" ||
+        (useCustomRange && customRange === "")
+      ) {
+        setUseAllColumns(true);
+        setColumns([]);
+        return;
+      }
+
+      try {
+        let firstRow;
+        if (!useCustomRange) {
+          firstRow = "1:1";
+        } else {
+          firstRow = firstRowOfCustomRange(customRange);
+        }
+
+        const data = await getDataFromSheet(
+          chosenSpreadsheet.spreadsheetId,
+          firstRow
+        );
+
+        if (data.length === 0) {
+          setUseAllColumns(true);
+          setColumns([]);
+          return;
+        }
+
+        setColumns(data[0].map(String));
+      } catch (e) {
+        setUseAllColumns(true);
+        setColumns([]);
+      }
+    })();
+  }, [chosenSpreadsheet, chosenSheet, useCustomRange, customRange]);
 
   const onClientLoad = useCallback(async () => {
     gapi.client.init({
@@ -58,25 +119,21 @@ export default function App() {
     })();
   }, [onClientLoad]);
 
-  function resetState() {
-    setError("");
-    setSpreadsheetLink("");
-    setChosenSpreadsheet(null);
-    setChosenSheet("");
-    setUseHeader(true);
-    setUseCustomRange(false);
-    setCustomRange("");
-    setUseAllColumns(true);
-    setColumns([]);
-  }
-
   async function querySheetFromLink() {
+    let spreadsheetId;
+    try {
+      spreadsheetId = getSpreadsheetIdFromLink(spreadsheetLink);
+    } catch (e) {
+      setError(e.message);
+      return;
+    }
+
     let sheet;
 
     try {
       sheet = (
         await gapi.client.sheets.spreadsheets.get({
-          spreadsheetId: spreadsheetLink,
+          spreadsheetId,
         })
       ).result;
     } catch (e) {
@@ -103,9 +160,7 @@ export default function App() {
       return;
     }
 
-    const range = useCustomRange
-      ? `${chosenSheet}!${customRange}`
-      : chosenSheet;
+    const range = formatRange(chosenSheet, customRange, useCustomRange);
 
     let data;
 
@@ -121,13 +176,25 @@ export default function App() {
       return;
     }
 
-    let attributeNames: string[];
+    // The first element of the tuple will store the column index
+    let attributeNames: [number, string][];
     let dataRows: unknown[][];
     if (useHeader) {
-      attributeNames = data[0].map(String);
+      attributeNames = data[0].map((name, index) => [index, String(name)]);
+
+      // Use a filter to preserve original order
+      if (!useAllColumns) {
+        attributeNames = attributeNames.filter(([, name]) =>
+          chosenColumns.includes(name)
+        );
+      }
+
       dataRows = data.slice(1);
     } else {
-      attributeNames = data[0].map((_value, index) => `Column ${index}`);
+      attributeNames = data[0].map((_value, index) => [
+        index,
+        `Column ${index}`,
+      ]);
       dataRows = data;
     }
     await createTableWithDataset(
@@ -143,6 +210,13 @@ export default function App() {
 
   function toggleHeader() {
     setUseHeader(!useHeader);
+  }
+
+  function useCustomColumns() {
+    if (columns.length === 0) {
+      return;
+    }
+    clearErrorAnd(() => setUseAllColumns(false))();
   }
 
   function clearErrorAnd(f: () => void) {
@@ -215,18 +289,30 @@ export default function App() {
               <h3>Columns</h3>
               <input
                 type="radio"
-                id="all"
+                id="allColumns"
                 checked={useAllColumns}
                 onClick={clearErrorAnd(() => setUseAllColumns(true))}
               />
-              <label htmlFor="all">All columns</label>
+              <label htmlFor="allColumns">All columns</label>
               <br />
-              <input
-                type="radio"
-                checked={!useAllColumns}
-                onClick={clearErrorAnd(() => setUseAllColumns(false))}
-              />
-              <Select options={[]} />
+              <div id="column-selector-row">
+                <input
+                  type="radio"
+                  checked={!useAllColumns}
+                  disabled={columns.length === 0}
+                  onChange={useCustomColumns}
+                />
+                <Select
+                  styles={customStyles}
+                  isMulti
+                  isDisabled={columns.length === 0}
+                  options={columns.map((n) => ({ value: n, label: n }))}
+                  onChange={(selected) => {
+                    setChosenColumns(selected.map((s) => s.value));
+                  }}
+                  onFocus={useCustomColumns}
+                />
+              </div>
             </div>
           )}
 
@@ -236,20 +322,28 @@ export default function App() {
           </div>
         </>
       ) : (
-        <div className="input-group">
-          <h3>Public Spreadsheet Link</h3>
-          <div style={{ display: "flex" }}>
-            <input
-              style={{ width: "300px" }}
-              type="text"
-              value={spreadsheetLink}
-              onChange={spreadsheetLinkChange}
-            />
-            <button style={{ marginLeft: "5px" }} onClick={querySheetFromLink}>
-              Next
-            </button>
+        <>
+          <div className="input-group">
+            <p>Make your sheet public, then paste the link below</p>
           </div>
-        </div>
+          <div className="input-group">
+            <h3>Public Spreadsheet Link</h3>
+            <div style={{ display: "flex" }}>
+              <input
+                style={{ width: "300px" }}
+                type="text"
+                value={spreadsheetLink}
+                onChange={spreadsheetLinkChange}
+              />
+              <button
+                style={{ marginLeft: "5px" }}
+                onClick={querySheetFromLink}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </>
   );
