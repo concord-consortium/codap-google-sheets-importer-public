@@ -3451,10 +3451,10 @@ coa@^2.0.2:
     chalk "^2.4.1"
     q "^1.1.2"
 
-codap-phone@^0.2.3:
-  version "0.2.3"
-  resolved "https://registry.yarnpkg.com/codap-phone/-/codap-phone-0.2.3.tgz#d1cb6a1e43f2eea350b27408522662d35592e403"
-  integrity sha512-XyJjpAUNni6vFIKiFrtu1S+NO7TUe35XpiBtPirs5RqWF0VHM8mCHAJyQ+TqTRgp0yzqZEjaH++zPg6Vq4uxgw==
+codap-phone@^0.3.2:
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/codap-phone/-/codap-phone-0.3.2.tgz#894fb29813d3af0eec47af86a6712d31d65af005"
+  integrity sha512-q2hHGoaOlS1y0NJXnoxR4caNPsuXtv8D3C/Uu3Htb2m7xRh9klPbv4seI46Jrp3F9+GFfRHshmYCYEwvuQ6jcw==
   dependencies:
     iframe-phone "^1.3.1"
 

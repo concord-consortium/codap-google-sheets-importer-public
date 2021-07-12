@@ -13,7 +13,7 @@
     "@types/react": "^17.0.0",
     "@types/react-dom": "^17.0.0",
     "@types/react-select": "^4.0.16",
-    "codap-phone": "^0.2.3",
+    "codap-phone": "^0.3.2",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-scripts": "4.0.3",
