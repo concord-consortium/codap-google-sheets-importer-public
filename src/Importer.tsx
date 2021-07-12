@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./codap.css";
 import "./styles.css";
-import { initializePlugin, createTableWithDataset } from "codap-phone";
+import {
+  initializePlugin,
+  createContextWithDataset,
+  createTable,
+} from "codap-phone";
 import { useInput } from "./hooks";
 import {
   getDataFromSheet,
@@ -197,10 +201,16 @@ export default function Importer() {
       ]);
       dataRows = data;
     }
-    await createTableWithDataset(
+    const { name: contextName } = await createContextWithDataset(
       makeDataset(attributeNames, dataRows),
-      chosenSpreadsheet.properties.title
+      chosenSpreadsheet.properties.title || "Untitled Sheet",
+      undefined,
+      {
+        source: chosenSpreadsheet.spreadsheetUrl,
+        importDate: new Date().toString(),
+      }
     );
+    await createTable(contextName, contextName);
     resetState();
   }
 
