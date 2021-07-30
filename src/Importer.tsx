@@ -14,6 +14,8 @@ import {
   firstRowOfCustomRange,
   getSpreadsheetIdFromLink,
 } from "./util";
+import { SheetLinkDialog } from "./components/SheetLinkDialog";
+import { ErrorDisplay } from "./components/Error";
 import Select from "react-select";
 import { customStyles } from "./selectStyles";
 
@@ -238,12 +240,14 @@ export default function Importer() {
 
   return (
     <>
-      {error !== "" && (
-        <div className="error">
-          <p>{error}</p>
-        </div>
-      )}
-      {chosenSpreadsheet !== null ? (
+      {error !== "" && <ErrorDisplay message={error} />}
+      {chosenSpreadsheet === null ? (
+        <SheetLinkDialog
+          spreadsheetLink={spreadsheetLink}
+          onChange={spreadsheetLinkChange}
+          onNext={querySheetFromLink}
+        />
+      ) : (
         <>
           <div className="input-group">
             <h3>Select a Sheet</h3>
@@ -329,29 +333,6 @@ export default function Importer() {
           <div id="submit-buttons" className="input-group">
             <button onClick={importSheet}>Import</button>
             <button onClick={cancelImport}>Cancel</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="input-group">
-            <p>Make your sheet public, then paste the link below</p>
-          </div>
-          <div className="input-group">
-            <h3>Public Spreadsheet Link</h3>
-            <div style={{ display: "flex" }}>
-              <input
-                style={{ width: "300px" }}
-                type="text"
-                value={spreadsheetLink}
-                onChange={spreadsheetLinkChange}
-              />
-              <button
-                style={{ marginLeft: "5px" }}
-                onClick={querySheetFromLink}
-              >
-                Next
-              </button>
-            </div>
           </div>
         </>
       )}
