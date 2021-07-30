@@ -155,14 +155,16 @@ export default function Importer() {
     }
   }
 
-  async function importSheet() {
+  async function importSheet(e: React.FormEvent) {
+    e.preventDefault();
+
     if (chosenSpreadsheet === null) {
-      setError("Please choose a spreadsheet.");
+      setError("Please choose a sheet to import.");
       return;
     }
 
     if (useCustomRange && customRange === "") {
-      setError("Please select a valid range.");
+      setError('Please enter a range or choose "All values".');
       return;
     }
 
@@ -178,7 +180,9 @@ export default function Importer() {
     }
 
     if (data.length === 0) {
-      setError("Specified range is empty.");
+      setError(
+        "Please enter a different range: the given range contained no values."
+      );
       return;
     }
 
@@ -248,7 +252,7 @@ export default function Importer() {
           onNext={querySheetFromLink}
         />
       ) : (
-        <>
+        <form onSubmit={importSheet}>
           <div className="input-group">
             <h3>Select a Sheet</h3>
             <select value={chosenSheet} onChange={chosenSheetChange}>
@@ -295,6 +299,7 @@ export default function Importer() {
               value={customRange}
               onFocus={clearErrorAnd(() => setUseCustomRange(true))}
               onChange={customRangeChange}
+              required={useCustomRange}
             />
           </div>
 
@@ -331,10 +336,10 @@ export default function Importer() {
           )}
 
           <div id="submit-buttons" className="input-group">
-            <button onClick={importSheet}>Import</button>
+            <button type="submit">Import</button>
             <button onClick={cancelImport}>Cancel</button>
           </div>
-        </>
+        </form>
       )}
     </>
   );
