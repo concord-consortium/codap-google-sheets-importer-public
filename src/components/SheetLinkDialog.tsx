@@ -9,6 +9,12 @@ export function SheetLinkDialog({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onNext: () => void;
 }) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      onNext();
+    }
+  }
+
   return (
     <>
       <div className="input-group">
@@ -22,6 +28,7 @@ export function SheetLinkDialog({
             type="text"
             value={spreadsheetLink}
             onChange={onChange}
+            onKeyDown={onKeyDown}
           />
           <button style={{ marginLeft: "5px" }} onClick={onNext}>
             Next
