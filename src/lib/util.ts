@@ -103,6 +103,33 @@ export async function getColumnNamesFromSheet(
   }
 }
 
+export function makeDatasetFromSheetsData(
+  data: unknown[][],
+  useHeader: boolean,
+  columnNames?: string[],
+) {
+  // The first element of the tuple will store the column index
+  let attributeNames: [number, string][];
+  let dataRows: unknown[][];
+  if (useHeader) {
+    attributeNames = data[0].map((name, index) => [index, String(name)]);
+
+    // Use a filter to preserve original order
+    if (columnNames !== undefined) {
+      attributeNames = attributeNames.filter(([, name]) =>
+        columnNames.includes(name)
+      );
+    }
+
+    dataRows = data.slice(1);
+  } else {
+    attributeNames = data[0].map((_value, index) => [index, `Column ${index}`]);
+    dataRows = data;
+  }
+
+  return makeDataset(attributeNames, dataRows);
+}
+
 export function makeDataset(
   attributeNames: [number, string][],
   dataRows: unknown[][]

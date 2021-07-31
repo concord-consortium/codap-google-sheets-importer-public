@@ -15,6 +15,7 @@ import {
   firstRowOfCustomRange,
   getSpreadsheetIdFromLink,
   getColumnNamesFromSheet,
+  makeDatasetFromSheetsData,
 } from "./lib/util";
 import { SheetLinkDialog } from "./components/SheetLinkDialog";
 import { ErrorDisplay } from "./components/Error";
@@ -176,37 +177,27 @@ export default function Importer() {
       return;
     }
 
-    // The first element of the tuple will store the column index
-    let attributeNames: [number, string][];
-    let dataRows: unknown[][];
-    if (useHeader) {
-      attributeNames = data[0].map((name, index) => [index, String(name)]);
-
-      // Use a filter to preserve original order
-      if (!useAllColumns) {
-        attributeNames = attributeNames.filter(([, name]) =>
-          chosenColumns.includes(name)
-        );
-      }
-
-      dataRows = data.slice(1);
-    } else {
-      attributeNames = data[0].map((_value, index) => [
-        index,
-        `Column ${index}`,
-      ]);
-      dataRows = data;
+    try {
+      const { name: contextName } = await createContextWithDataset(
+        makeDatasetFromSheetsData(
+          data,
+          useHeader,
+          useAllColumns ? undefined : chosenColumns
+        ),
+        chosenSpreadsheet.properties.title || "Untitled Sheet",
+        undefined,
+        {
+          source: chosenSpreadsheet.spreadsheetUrl,
+          importDate: new Date().toString(),
+        }
+      );
+      await createTable(contextName, contextName);
+    } catch (e) {
+      setError(
+        "Something went wrong when creating a table. Try again with different data or after refreshing the page."
+      );
+      return;
     }
-    const { name: contextName } = await createContextWithDataset(
-      makeDataset(attributeNames, dataRows),
-      chosenSpreadsheet.properties.title || "Untitled Sheet",
-      undefined,
-      {
-        source: chosenSpreadsheet.spreadsheetUrl,
-        importDate: new Date().toString(),
-      }
-    );
-    await createTable(contextName, contextName);
     resetState();
   }
 
@@ -285,7 +276,7 @@ export default function Importer() {
             />
             <input
               type="text"
-              placeholder="A1:C6"
+              placeholder="Custom range, e.g. A1:C6"
               value={customRange}
               onFocus={clearErrorAnd(() => setUseCustomRange(true))}
               onChange={customRangeChange}
