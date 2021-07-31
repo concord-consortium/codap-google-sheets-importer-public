@@ -1,4 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  getAllDataContexts,
+  CodapIdentifyingInfo,
+  addNewContextListener,
+  removeNewContextListener,
+} from "codap-phone";
 
 interface ElementWithValue {
   value: string;
@@ -23,4 +29,21 @@ export function useInput<T, E extends ElementWithValue>(
     [setInputValue, extraAction]
   );
   return [inputValue, onChange, setInputValue];
+}
+
+export function useDataContexts(): CodapIdentifyingInfo[] {
+  const [dataContexts, setDataContexts] = useState<CodapIdentifyingInfo[]>([]);
+
+  async function refreshTables() {
+    setDataContexts(await getAllDataContexts());
+  }
+
+  // Initial refresh to set up connection, then start listening
+  useEffect(() => {
+    refreshTables();
+    addNewContextListener(refreshTables);
+    return () => removeNewContextListener(refreshTables);
+  }, []);
+
+  return dataContexts;
 }

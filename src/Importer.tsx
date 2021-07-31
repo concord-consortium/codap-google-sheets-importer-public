@@ -6,13 +6,12 @@ import {
   createContextWithDataset,
   createTable,
 } from "codap-phone";
-import { useInput } from "./hooks";
+import { useInput, useDataContexts } from "./lib/hooks";
 import {
+  uniqueName,
   getSheetFromId,
   getDataFromSheet,
-  makeDataset,
   formatRange,
-  firstRowOfCustomRange,
   getSpreadsheetIdFromLink,
   getColumnNamesFromSheet,
   makeDatasetFromSheetsData,
@@ -55,6 +54,8 @@ export default function Importer() {
   const [useAllColumns, setUseAllColumns] = useState<boolean>(true);
   const [columns, setColumns] = useState<string[]>([]);
   const [chosenColumns, setChosenColumns] = useState<string[]>([]);
+
+  const dataContextNames = useDataContexts().map((c) => c.name);
 
   function resetState() {
     setError("");
@@ -177,6 +178,13 @@ export default function Importer() {
       return;
     }
 
+    const tableTitle = uniqueName(
+      chosenSpreadsheet.properties.title !== undefined
+        ? `${chosenSpreadsheet.properties.title}/${chosenSheet}`
+        : "Untitled Sheet",
+      dataContextNames
+    );
+
     try {
       const { name: contextName } = await createContextWithDataset(
         makeDatasetFromSheetsData(
@@ -184,7 +192,7 @@ export default function Importer() {
           useHeader,
           useAllColumns ? undefined : chosenColumns
         ),
-        chosenSpreadsheet.properties.title || "Untitled Sheet",
+        tableTitle,
         undefined,
         {
           source: chosenSpreadsheet.spreadsheetUrl,
