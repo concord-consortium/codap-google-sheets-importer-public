@@ -8,16 +8,19 @@ import {
 } from "codap-phone";
 import { useInput } from "./hooks";
 import {
+  getSheetFromId,
   getDataFromSheet,
   makeDataset,
   formatRange,
   firstRowOfCustomRange,
   getSpreadsheetIdFromLink,
-} from "./util";
+  getColumnNamesFromSheet,
+} from "./lib/util";
 import { SheetLinkDialog } from "./components/SheetLinkDialog";
 import { ErrorDisplay } from "./components/Error";
+import { InvalidRangeError, GeneralAPIError } from "./lib/errors";
 import Select from "react-select";
-import { customStyles } from "./selectStyles";
+import { customStyles } from "./lib/selectStyles";
 
 // Used for non-authorized access
 const apiKey = "AIzaSyApHk347S1T57kwsI5kiitUriEyr89NHxo";
@@ -65,7 +68,7 @@ export default function Importer() {
     setChosenColumns([]);
   }
 
-  // Fetch column names
+  // Fetch column names to fill the column name dropdown
   useEffect(() => {
     (async () => {
       if (
@@ -79,25 +82,15 @@ export default function Importer() {
       }
 
       try {
-        let firstRow;
-        if (!useCustomRange) {
-          firstRow = "1:1";
-        } else {
-          firstRow = firstRowOfCustomRange(customRange);
-        }
-
-        const data = await getDataFromSheet(
+        const columns = await getColumnNamesFromSheet(
           chosenSpreadsheet.spreadsheetId,
-          firstRow
+          chosenSheet,
+          useCustomRange ? customRange : undefined
         );
-
-        if (data.length === 0) {
+        setColumns(columns);
+        if (columns.length === 0) {
           setUseAllColumns(true);
-          setColumns([]);
-          return;
         }
-
-        setColumns(data[0].map(String));
       } catch (e) {
         setUseAllColumns(true);
         setColumns([]);
@@ -126,31 +119,21 @@ export default function Importer() {
   }, [onClientLoad]);
 
   async function querySheetFromLink() {
-    let spreadsheetId;
-    try {
-      spreadsheetId = getSpreadsheetIdFromLink(spreadsheetLink);
-    } catch (e) {
-      setError(e.message);
-      return;
-    }
-
     let sheet;
 
     try {
-      sheet = (
-        await gapi.client.sheets.spreadsheets.get({
-          spreadsheetId,
-        })
-      ).result;
+      sheet = await getSheetFromId(getSpreadsheetIdFromLink(spreadsheetLink));
     } catch (e) {
-      setError(e.result.error.message);
+      setError(
+        "Please enter a valid Google Sheets link and make sure that the sheet is public."
+      );
       return;
     }
 
-    setChosenSpreadsheet(sheet as Required<gapi.client.sheets.Spreadsheet>);
+    setChosenSpreadsheet(sheet);
 
     // Set first sheet as chosen
-    if (sheet.sheets && sheet.sheets.length > 0) {
+    if (sheet.sheets.length > 0) {
       setChosenSheet(sheet.sheets[0].properties?.title as string);
     }
   }
@@ -168,20 +151,27 @@ export default function Importer() {
       return;
     }
 
-    const range = formatRange(chosenSheet, customRange, useCustomRange);
+    const range = formatRange(
+      chosenSheet,
+      useCustomRange ? customRange : undefined
+    );
 
     let data;
 
     try {
       data = await getDataFromSheet(chosenSpreadsheet.spreadsheetId, range);
     } catch (e) {
-      setError(e.message);
+      if (e instanceof InvalidRangeError) {
+        setError("Please enter a valid range. E.g. A1:C6.");
+      } else if (e instanceof GeneralAPIError) {
+        setError("An unknown Google Sheets error occured. Please try again.");
+      }
       return;
     }
 
     if (data.length === 0) {
       setError(
-        "Please enter a different range: the given range contained no values."
+        "Please enter a different range: the given range contains no values."
       );
       return;
     }

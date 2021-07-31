@@ -1,4 +1,9 @@
 import { Dataset } from "codap-phone";
+import {
+  InvalidRangeError,
+  SpreadSheetNotFoundError,
+  GeneralAPIError,
+} from "./errors";
 
 /**
  * Make rows in 2D array all have the same length by filling rows that are
@@ -21,6 +26,30 @@ function fillRows(table: unknown[][]): unknown[][] {
   );
 }
 
+export async function getSheetFromId(
+  spreadsheetId: string
+): Promise<Required<gapi.client.sheets.Spreadsheet>> {
+  let sheet;
+
+  try {
+    sheet = (
+      await gapi.client.sheets.spreadsheets.get({
+        spreadsheetId,
+      })
+    ).result;
+  } catch (e) {
+    if (e.result.error.code === 404) {
+      throw new SpreadSheetNotFoundError();
+    } else {
+      throw e.result.error;
+    }
+  }
+
+  // Cast here since the gapi type is needlessly optional
+  return sheet as Required<gapi.client.sheets.Spreadsheet>;
+}
+
+const UNABLE_TO_PARSE_RANGE = "Unable to parse range";
 export async function getDataFromSheet(
   sheetId: string,
   range: string
@@ -34,7 +63,15 @@ export async function getDataFromSheet(
       })
     ).result;
   } catch (e) {
-    throw e.result.error;
+    const error = e.result.error;
+    console.log(error);
+    if (error.message.startsWith(UNABLE_TO_PARSE_RANGE)) {
+      throw new InvalidRangeError();
+    } else if (error.code === 404) {
+      throw new SpreadSheetNotFoundError();
+    } else {
+      throw new GeneralAPIError();
+    }
   }
 
   if (data.values === undefined) {
@@ -42,6 +79,28 @@ export async function getDataFromSheet(
   }
 
   return fillRows(data.values);
+}
+
+export async function getColumnNamesFromSheet(
+  id: string,
+  sheetName: string,
+  customRange?: string
+): Promise<string[]> {
+  let firstRow;
+  if (customRange === undefined) {
+    firstRow = "1:1";
+  } else {
+    firstRow = firstRowOfCustomRange(customRange);
+  }
+
+  const range = formatRange(sheetName, firstRow);
+  const data = await getDataFromSheet(id, range);
+
+  if (data.length === 0) {
+    return [];
+  } else {
+    return data[0].map(String);
+  }
 }
 
 export function makeDataset(
@@ -70,12 +129,8 @@ export function makeDataset(
   };
 }
 
-export function formatRange(
-  sheetName: string,
-  customRange: string,
-  useCustomRange = true
-) {
-  return useCustomRange ? `${sheetName}!${customRange}` : sheetName;
+export function formatRange(sheetName: string, customRange?: string) {
+  return customRange !== undefined ? `${sheetName}!${customRange}` : sheetName;
 }
 
 export function parseRange(range: string): [string, string] {
