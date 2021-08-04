@@ -5,6 +5,7 @@ import {
   initializePlugin,
   createContextWithDataset,
   createTable,
+  dismissPlugin,
 } from "codap-phone";
 import { useInput, useDataContexts } from "./lib/hooks";
 import {
@@ -206,7 +207,9 @@ export default function Importer() {
       );
       return;
     }
-    resetState();
+
+    // Done importing, dismiss the plugin
+    dismissPlugin();
   }
 
   function cancelImport() {
